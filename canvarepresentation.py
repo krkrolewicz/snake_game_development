@@ -2,11 +2,20 @@ import tkinter as tk
 
 class CanvaRepresentation:
 
+    possibilities_of_colors = {
+        "black-white" : {1: "black", 0: "white", 2: "#701D84"},
+        "white-black" : {1: "white", 0: "black"},
+        "red-black" : {1: "red", 0: "black"},
+        "green-red" : {1: "green", 0: "red"},
+        "purple-yellow" : {1:"purple", 0:"yellow"}
+    }
+
+
     def __init__(self, size_a, size_b, plain):
         self.plain_to_reflect = plain
         self.window = tk.Tk() #włąściwe okno
         self.window.title("Somsiedzka gra w węża")
-        self.lifecolor = {0: "white", 1 : "black"}
+        self.lifecolor = {0: "white", 1 : "black", 2: "purple"}
         self.window.geometry(f'{size_a}x{round(size_b)}') #definiuję rozmiar
         self.canva = tk.Canvas(self.window, width=size_a, height=round(size_b)*2.5/3, bg='white') #tworzę kanwę tak, aby na dole było jeszcze miejsce na wstawienie przycisków
         self.canva.pack()
