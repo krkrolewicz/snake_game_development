@@ -57,17 +57,20 @@ class Game:
         self.robotic_movements = False
         self.models = []
         self.model_in_use = None
-        self.counter = 0
+        self.first_ep = True
+        self.counter = 1
         self.update_all()
 
     def update_all(self):
         self.CR.canva.delete("all")
         if self.robotic_movements:
-            picked_movement = self.model_in_use.get_direction()
+            state = self.mi.objects_to_plain_translate(self.gamesnake.snakepart_location, self.gameplain, self.food.coords)
+            picked_movement = self.model_in_use.get_direction(state, self.first_ep)
             self.determine_movement(picked_movement)
+            self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
         else:
             self.determine_movement(self.gamesnake.head_movement)
-        self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
+        #self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
         self.gamesnake.move()
         self.mi.evaluate_actions(self.gamesnake, self.food, self.gameplain.latitude, self.gameplain.longitude)
         self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
@@ -77,7 +80,7 @@ class Game:
                 self.CR.set_color(j-1, i-1, self.CR.lifecolor.get(self.gameplain.gameplain[i][j])) #rysujemy komórkę odpowiednim dla niej kolorem
 
         check_living = self.gamesnake.is_alive
-        if check_living == False or (self.counter == 40 and self.robotic_movements == True):
+        if check_living == False or (self.counter == 100 and self.robotic_movements == True):
             self.CR.canva.delete("all")
             self.CR.canva.after(self.speed, self.end)
         else:
@@ -95,7 +98,7 @@ class Game:
             self.gamesnake.expand()
             self.food = Food(self.gameplain, self.gamesnake.snakepart_location)
             self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
-            self.counter = 0
+            self.counter = 1
 
     def end(self):
         self.CR.canva.configure(background="black")
@@ -103,7 +106,7 @@ class Game:
                                    text  = "You lost", fill = "#701D84", 
                                    font = ("Arial", int(round(1/10*self.windowsize2))))
         self.CR.canva.update()
-        self.mi.divide_and_discount()
+        #self.mi.divide_and_discount()
         #self.play_again_button["state"] = "active"
         #self.real_player_button["state"] = "active"
         #self.robotic_player_button["state"] = "active"
@@ -111,7 +114,12 @@ class Game:
         if self.robotic_movements==False:
             self.play_again_button["state"] = "active"
             self.robotic_player_button["state"] = "active"
+            #self.mi.divide_and_discount()
         else:
+            self.mi.divide_and_discount()
+            self.model_in_use.adjust(self.mi.ready_for_pass_data, self.mi.available_actions)
+            print("newbegin")
+            self.first_ep = False
             self.default_all()
             self.update_all()
 
@@ -136,7 +144,7 @@ class Game:
         self.real_player_button["state"] = "disabled"
         self.play_again_button["state"] = "disabled"
         self.default_all()
-        new_model = SnakeRoboticPlayer(list(self.gamesnake.states.keys()))
+        new_model = SnakeRoboticPlayer(list(self.gamesnake.states.keys()), self.latitude + 2, self.longitude + 2)
         self.models.append(new_model)
         self.model_in_use = new_model
         self.update_all()
@@ -146,7 +154,7 @@ class Game:
         self.robotic_movements = False
         self.real_player_button["state"] = "active"
         self.play_again_button["state"] = "active"
-        time.sleep(1)
+        #time.sleep(1)
         self.gamesnake.is_alive = False
         print("stopped")
         self.end()

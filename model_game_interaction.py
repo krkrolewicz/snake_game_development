@@ -27,6 +27,8 @@ class model_game_interact:
 
         self.episodes_values = np.array([])
 
+        self.ready_for_pass_data = None
+
     def empty_arrays(self):
         self.episodes_states = np.array([])
         self.episodes_actions = np.array([])
@@ -36,14 +38,15 @@ class model_game_interact:
         action = snake.head_movement
         value_s = np.array([self.evaluate_action(snake, food, plain.latitude, plain.longitude)])
         mapped_plain = self.objects_to_plain_translate(snake.snakepart_location, plain, food.coords)
-        print(self.episodes_values)
-        print(value_s)
+        #print(self.episodes_values)
+        #print(value_s)
         self.episodes_states = concatenator(self.episodes_states, mapped_plain)
         self.episodes_values = concatenator(self.episodes_values, value_s)
         self.episodes_actions = concatenator(self.episodes_actions, action)
 
     def divide_and_discount(self, beta = 0.95):
         limits = np.where(self.episodes_values == 50)[0] + 1
+        self.episodes_actions[-1] = -100000
         subepisodes = np.split(self.episodes_values, limits)
         for index in range(0, len(subepisodes)):
             subep = subepisodes[index]
@@ -57,7 +60,6 @@ class model_game_interact:
         self.pass_to_visited_states()
 
     def pass_to_visited_states(self):
-
         some = pd.DataFrame({"State": list(self.episodes_states), 
                              "Action": self.episodes_actions, 
                              "Q(s, a)": self.episodes_values})
@@ -83,8 +85,9 @@ class model_game_interact:
 
         refactored = refactored.fillna(0)
         refactored = refactored[self.available_actions]
+        states = refactored.index
+        #print(states)
         refactored = refactored.values
-        print(refactored)
         maxes = np.max(refactored, axis = 1)
         maxes = np.reshape(maxes, newshape=(maxes.size ,1))
         refactored = (refactored == maxes).astype(int) #refactored.iloc[:, :-1].apply(lambda x: np.where(x == refactored["maxes"], 1, 0))
@@ -93,7 +96,14 @@ class model_game_interact:
         m = len(self.available_actions)
         refactored = epsilon/m + refactored* (1-epsilon)/m2s #refactored.iloc[:, :-1].apply(lambda x: np.where(x == 1, epsilon/m + (1 - epsilon)/refactored["m2s"], epsilon/m ))
         # wybór akcji do modelu - jako wektor
-        #print(refactored)
+        #print(refactored.shape[0])
+        os = refactored.shape
+        refactored = np.array([np.random.choice(np.arange(4), p = i) for i in refactored])
+        nr = np.zeros(shape = os)
+        nr[np.arange(os[0]), np.array(refactored)] = 1
+
+        self.ready_for_pass_data = (states, refactored)
+        print("Episode processed")
 
     def get_alternatives(self, snake):
         
