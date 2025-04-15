@@ -1,5 +1,5 @@
 import numpy as np
-import cupy as cp
+#import cupy as cp
 import pandas as pd
 
 class model_game_interact:
@@ -27,6 +27,11 @@ class model_game_interact:
 
         self.episodes_values = np.array([])
 
+    def empty_arrays(self):
+        self.episodes_states = np.array([])
+        self.episodes_actions = np.array([])
+        self.episodes_values = np.array([])      
+
     def insert_to_episode(self, snake, plain, food):
         action = snake.head_movement
         value_s = np.array([self.evaluate_action(snake, food, plain.latitude, plain.longitude)])
@@ -48,8 +53,6 @@ class model_game_interact:
             subepisodes[index] = subep
         
         self.episodes_values = np.concatenate(subepisodes)
-        #print(self.episodes_values)
-        print("first_done")
         self.pass_to_visited_states()
 
     def pass_to_visited_states(self):
@@ -59,41 +62,18 @@ class model_game_interact:
                              "Q(s, a)": self.episodes_values})
         
         some["State"] = some["State"].apply(lambda x: tuple(x.flatten()))
-        #print(some)
-        some = some.groupby(["State", "Action"]).agg({"Q(s, a)": [("Q(s, a)", "mean"), ("N(s, a)", "count")]})
-        some = some.droplevel(0, axis =1)
-        #print(some)
-        #print(some.columns)
         if self.first:
             self.visited_states = some
             self.first = False
         else:
-            pass
-        # for index in range(0, len(self.episodes_values)):
-        #     taken_state = tuple(self.episodes_states[index])
-        #     taken_action = self.episodes_actions[index]
-        #     taken_value = self.episodes_values[index]
-        #     if taken_state not in self.visited_states.index.get_level_values("State"):
-        #         partial_df = pd.DataFrame(columns = ["N(s, a)", "Q(s, a)"], index = pd.MultiIndex.from_product([[taken_state], self.available_actions], names=["State", "Action"]))
-        #         partial_df.loc[:, "N(s, a)"] = 0
-        #         partial_df.loc[:, "Q(s, a)"] = 0
-        #         self.visited_states = pd.concat([self.visited_states, partial_df])
-                
-        #     vs = self.visited_states.loc[(taken_state, taken_action), "Q(s, a)"].to_numpy()
-        #     n1 = self.visited_states.loc[(taken_state, taken_action), "N(s, a)"].to_numpy()
-        #     n1 += 1
-        #     self.visited_states.loc[(taken_state, taken_action), "N(s, a)"] = n1
-        #     ns = self.visited_states.loc[(taken_state, taken_action), "N(s, a)"].to_numpy()
-        #     self.visited_states.loc[(taken_state, taken_action), "Q(s, a)"] = vs + 1/(ns)*(taken_value - vs)
-        print("dome")
+            self.visited_states = pd.concat([self.visited_states, some])
+
         self.pass_to_model()
     def pass_to_model(self, epsilon = 0.1):
 
-        # iterowanie po indeksie stanu (inaczej się nie uda) - zrobione w poprzedniej funkcji
-        # weryfikacja czy wszystkie akcje są uwzględnione - uzwględnione
-        # sprawdzenie która akcja jest najlepsza
-
-        refactored = self.visited_states["Q(s, a)"]
+        refactored = self.visited_states.groupby(["State", "Action"]).agg({"Q(s, a)": [("Q(s, a)", "mean"), ("N(s, a)", "count")]})
+        refactored = refactored.droplevel(0, axis =1)
+        refactored = refactored["Q(s, a)"]
         refactored = refactored.unstack("Action")
         existing_cols = set(refactored.columns.to_list())
         non_existing = set(self.available_actions).difference(existing_cols)
@@ -102,8 +82,8 @@ class model_game_interact:
 
         refactored = refactored.fillna(0)
         refactored = refactored[self.available_actions]
-        #print(refactored)
         refactored = refactored.values
+        print(refactored)
         maxes = np.max(refactored, axis = 1)
         maxes = np.reshape(maxes, newshape=(maxes.size ,1))
         refactored = (refactored == maxes).astype(int) #refactored.iloc[:, :-1].apply(lambda x: np.where(x == refactored["maxes"], 1, 0))
@@ -111,10 +91,8 @@ class model_game_interact:
         m2s = np.reshape(m2s, newshape=(m2s.size, 1))
         m = len(self.available_actions)
         refactored = epsilon/m + refactored* (1-epsilon)/m2s #refactored.iloc[:, :-1].apply(lambda x: np.where(x == 1, epsilon/m + (1 - epsilon)/refactored["m2s"], epsilon/m ))
-        #print(maxes)
         # wybór akcji do modelu - jako wektor
         #print(refactored)
-
 
     def get_alternatives(self, snake):
         
@@ -125,11 +103,8 @@ class model_game_interact:
     def objects_to_plain_translate(self, snake, plain, food):
 
         mapped_plain = np.zeros(shape = (plain.latitude + 2, plain.longitude + 2), dtype=np.int32)
-        #print("printing object")
-        #print(objects)
         objects = {"snake": snake, "food" : food}
         for i, j in objects.items():
-            #print(i)
             ind = 0
             for k in j:
                 if ind == 0 and i == "snake":
@@ -139,7 +114,6 @@ class model_game_interact:
                 else:
                     mapped_plain[k[0], k[1]] = -1
                 ind +=1
-        #print(mapped_plain)
         return mapped_plain
 
 
@@ -153,32 +127,26 @@ class model_game_interact:
             #food_check
             if np.all(head == food.coords[0]):
                 actions_values[i] = 50
-
             else:
                 head = head.tolist()
                 rest = rest.tolist()
                 if (head in rest) or (len(set(head).intersection({0, latitude + 1, longitude + 1})) > 0):
                     actions_values[i] = -1000000
-
                 else:
                     actions_values[i] = -1
-        
         #print(actions_values)
 
     def evaluate_action(self, snake, food, latitude, longitude):
         evaluated_snake_loc = snake.move(evaluate = True)
-        #print(evaluated_snake_loc)
         head = evaluated_snake_loc[0]
         rest = evaluated_snake_loc[1:]
         if np.all(head == food.coords[0]):
                 return 50.0
-
         else:
                 head = head.tolist()
                 rest = rest.tolist()
                 if (head in rest) or (len(set(head).intersection({0, latitude + 1, longitude + 1})) > 0):
                     return -1000000.0
-
                 else:
                     return -1.0
 
