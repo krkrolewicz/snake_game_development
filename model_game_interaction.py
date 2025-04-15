@@ -36,7 +36,8 @@ class model_game_interact:
         action = snake.head_movement
         value_s = np.array([self.evaluate_action(snake, food, plain.latitude, plain.longitude)])
         mapped_plain = self.objects_to_plain_translate(snake.snakepart_location, plain, food.coords)
-
+        print(self.episodes_values)
+        print(value_s)
         self.episodes_states = concatenator(self.episodes_states, mapped_plain)
         self.episodes_values = concatenator(self.episodes_values, value_s)
         self.episodes_actions = concatenator(self.episodes_actions, action)
@@ -154,8 +155,11 @@ class model_game_interact:
 
 def concatenator(first, second):
 
+    #try:
     if len(first) == 0:
         first = np.array([second])
     else:
         first = np.concatenate([first, np.array([second])])
     return first
+    # except:
+    #     pass

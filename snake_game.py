@@ -5,14 +5,15 @@ from snake import Snake
 from plain import Plain
 from food import Food
 from canvarepresentation import CanvaRepresentation
-import time
+from model import SnakeRoboticPlayer
 from model_game_interaction import model_game_interact
+import time
 
 class Game:
 
     def __init__(self, latitude, longitude, window_size1, window_size2):
 
-        #self.movements = {"L": [1, -1], "R": [1,1], "U": [0, -1], "B": [0, 1]}
+        #self.movements = {"L": [1, -1], "R": [1,1], "U": [0, -1], "D": [0, 1]}
         self.windowsize1 = window_size1
         self.windowsize2 = window_size2
         self.latitude = latitude
@@ -30,9 +31,9 @@ class Game:
         self.CR.window.bind('<Down>', func = partial(self.determine_movement, "D"))
 
         self.real_player_button = tk.Button(self.CR.window, text = "Play yourself", command = None, state = "disabled")
-        self.robotic_player_button = tk.Button(self.CR.window, text="Create machine", command=None, state = "disabled")
+        self.robotic_player_button = tk.Button(self.CR.window, text="Create machine", command= self.initiate_robotic, state = "disabled")
         self.play_again_button = tk.Button(self.CR.window, text = "Play again", command = self.intermission, state = "disabled")
-        self.stop_training_button = tk.Button(self.CR.window, text="Stop training machine", command=None, state = "disabled")
+        self.stop_training_button = tk.Button(self.CR.window, text="Stop training machine", command=self.stopping, state = "disabled")
         
         self.real_player_button.place(x = window_size1 * 1/7, y = window_size2* 2.5/2.8)
         self.robotic_player_button.place(x = window_size1 * 2.2/7, y = window_size2* 2.5/2.8)
@@ -54,13 +55,16 @@ class Game:
         self.generate_food()
         self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
         self.robotic_movements = False
+        self.models = []
+        self.model_in_use = None
         self.counter = 0
         self.update_all()
 
     def update_all(self):
         self.CR.canva.delete("all")
         if self.robotic_movements:
-            pass
+            picked_movement = self.model_in_use.get_direction()
+            self.determine_movement(picked_movement)
         else:
             self.determine_movement(self.gamesnake.head_movement)
         self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
@@ -100,14 +104,21 @@ class Game:
                                    font = ("Arial", int(round(1/10*self.windowsize2))))
         self.CR.canva.update()
         self.mi.divide_and_discount()
-        self.play_again_button["state"] = "active"
+        #self.play_again_button["state"] = "active"
         #self.real_player_button["state"] = "active"
-        self.robotic_player_button["state"] = "active"
-        self.stop_training_button["state"] = "active"
+        #self.robotic_player_button["state"] = "active"
+        #self.stop_training_button["state"] = "active"
+        if self.robotic_movements==False:
+            self.play_again_button["state"] = "active"
+            self.robotic_player_button["state"] = "active"
+        else:
+            self.default_all()
+            self.update_all()
 
     def default_all(self):
         self.gameplain = Plain(self.latitude, self.longitude)
         self.gamesnake = Snake(self.latitude, self.longitude)
+        self.counter = 0
         self.mi.empty_arrays()
         self.score = 0
         self.score_print.set(f"Score: {self.score}")
@@ -121,10 +132,24 @@ class Game:
     
     def initiate_robotic(self):
         self.robotic_movements = True
+        self.stop_training_button["state"] = "active"
+        self.real_player_button["state"] = "disabled"
+        self.play_again_button["state"] = "disabled"
         self.default_all()
+        new_model = SnakeRoboticPlayer(list(self.gamesnake.states.keys()))
+        self.models.append(new_model)
+        self.model_in_use = new_model
+        self.update_all()
 
-    def unknown(self):
-        pass
+    def stopping(self):
+        self.CR.canva.delete("all")
+        self.robotic_movements = False
+        self.real_player_button["state"] = "active"
+        self.play_again_button["state"] = "active"
+        time.sleep(1)
+        self.gamesnake.is_alive = False
+        print("stopped")
+        self.end()
 
     def determine_movement(self, *args):
         movement = args[0]
