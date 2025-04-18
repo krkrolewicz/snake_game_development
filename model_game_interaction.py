@@ -76,21 +76,21 @@ class model_game_interact:
                              "Q(s, a)": self.episodes_values})
         
         some["State"] = some["State"].apply(lambda x: tuple(x.flatten()))
-        # if self.first:
-        #     self.visited_states = some
-        #     self.first = False
-        # else:
-        #     self.visited_states = pd.concat([self.visited_states, some])
+        if self.first:
+            self.visited_states = some
+            self.first = False
+        else:
+            self.visited_states = pd.concat([self.visited_states, some])
 
         #self.visited_states = some
 
-        if len(self.twohundred_last_episodes_data) <= 200:
-            self.twohundred_last_episodes_data.append(some)
-        else:
-            self.twohundred_last_episodes_data = self.twohundred_last_episodes_data[1:]
-            self.twohundred_last_episodes_data.append(some)
+        # if len(self.twohundred_last_episodes_data) <= 200:
+        #     self.twohundred_last_episodes_data.append(some)
+        # else:
+        #     self.twohundred_last_episodes_data = self.twohundred_last_episodes_data[1:]
+        #     self.twohundred_last_episodes_data.append(some)
 
-        self.visited_states = pd.concat(self.twohundred_last_episodes_data)
+        # self.visited_states = pd.concat(self.twohundred_last_episodes_data)
         self.pass_to_model(epsilon=0.0)
 
 
@@ -107,6 +107,11 @@ class model_game_interact:
 
         refactored = refactored.fillna(0)
         refactored = refactored[self.available_actions]
+
+        visited = [tuple(x.flatten()) for x in list(self.episodes_states)]
+        refactored = refactored[refactored.index.isin(visited)]
+        print(len(self.episodes_states))
+        print(len(refactored))
         states = refactored.index
         #print(self.investigate in states)
         # if self.investigate:
@@ -115,9 +120,6 @@ class model_game_interact:
         #print(refactored)
         #print(states)
         refactored = refactored.values
-        teststat = refactored > 0
-        stat2 = np.sum(teststat)
-        #print(stat2)
         maxes = np.max(refactored, axis = 1)
         maxes = np.reshape(maxes, newshape=(maxes.size ,1))
         refactored = (refactored == maxes).astype(int) #refactored.iloc[:, :-1].apply(lambda x: np.where(x == refactored["maxes"], 1, 0))
