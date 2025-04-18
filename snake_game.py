@@ -5,9 +5,10 @@ from snake import Snake
 from plain import Plain
 from food import Food
 from canvarepresentation import CanvaRepresentation
-from model import SnakeRoboticPlayer
+from model import SnakeRoboticPlayer, SnakeRoboticPlayer2
 from model_game_interaction import model_game_interact
 import time
+import torch
 
 class Game:
 
@@ -66,6 +67,7 @@ class Game:
         if self.robotic_movements:
             state = self.mi.objects_to_plain_translate(self.gamesnake.snakepart_location, self.gameplain, self.food.coords)
             picked_movement = self.model_in_use.get_direction(state, self.first_ep)
+            #print(picked_movement)
             self.determine_movement(picked_movement)
             self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
         else:
@@ -151,6 +153,7 @@ class Game:
 
     def stopping(self):
         self.CR.canva.delete("all")
+        torch.save(self.model_in_use.model2.state_dict(), "the_model.pt")
         self.robotic_movements = False
         self.real_player_button["state"] = "active"
         self.play_again_button["state"] = "active"
@@ -171,5 +174,5 @@ class Game:
 
 
 
-game = Game(25, 25, 500, 500)
+game = Game(15, 15, 500, 500)
 game.CR.window.mainloop()
