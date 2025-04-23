@@ -20,6 +20,7 @@ class model_game_interact:
             "rest_snake_and_limit": -1, 
             "other": 0
         }
+        #self.episode_counter = 1
         self.first = True
         self.episodes_states = np.array([])
 
@@ -30,43 +31,68 @@ class model_game_interact:
         self.twohundred_last_episodes_data = []
 
         self.ready_for_pass_data = None
-        self.ep_no = 1
+        self.ep_no = 0
         self.investigate = False
 
-        self.reward = 5000
+        self.reward = 50000
         self.fatal = -1000000
-        self.neutrum = -1
+        self.neutrum = 0 #-100
 
     def empty_arrays(self):
         self.episodes_states = np.array([])
         self.episodes_actions = np.array([])
-        self.episodes_values = np.array([])      
+        self.episodes_values = np.array([])
 
-    def insert_to_episode(self, snake, plain, food):
+    def reduce_state(self, snake, food, latitude, longitude, prevmove):
+        current_movement = prevmove
+        current_movement = list(snake.states.keys()).index(current_movement)
+        vector = np.zeros((4,))
+        vector[current_movement] = 1
+
+        action_results = self.evaluate_actions(snake, food, latitude, longitude)
+        dangers = np.array([1 if v == self.fatal else 0 for v in action_results.values()])
+        snakehead_latitude, snakehead_longitude = snake.snakepart_location[0]
+
+        fi1 = int(snakehead_latitude < food.latitude)
+        fi2 = int(snakehead_latitude > food.latitude)
+        la1 = int(snakehead_longitude < food.longitude)
+        la2 = int(snakehead_longitude > food.longitude)
+        reduced_state = np.array([vector, dangers, [fi1, fi2, la1, la2]]).flatten()
+        return reduced_state
+
+    def insert_to_episode(self, snake, plain, food, prev_move, state):
         action = snake.head_movement
         value_s = np.array([self.evaluate_action(snake, food, plain.latitude, plain.longitude)])
         mapped_plain = self.objects_to_plain_translate(snake.snakepart_location, plain, food.coords)
+        #reduced_state = self.reduce_state(snake, food, plain.latitude, plain.longitude, prev_move)
         #print(self.episodes_values)
         #print(value_s)
         if value_s > 0:
             self.investigate = tuple(mapped_plain.flatten())
             #print(self.investigate)
-        self.episodes_states = concatenator(self.episodes_states, mapped_plain)
+        #print(state,  action)
+        self.episodes_states = concatenator(self.episodes_states, state)
         self.episodes_values = concatenator(self.episodes_values, value_s)
         self.episodes_actions = concatenator(self.episodes_actions, action)
 
-    def divide_and_discount(self, beta = 0.85):
+    def divide_and_discount(self, beta1 = 0.0, beta2 = 0.95):
+        self.ep_no += 1
+        print("episode ", self.ep_no)
         limits = np.where(self.episodes_values == self.reward)[0] + 1
-        self.episodes_actions[-1] = self.fatal
+        #self.episodes_actions[-1] = self.fatal
         subepisodes = np.split(self.episodes_values, limits)
+        #print(subepisodes)
         for index in range(0, len(subepisodes)):
             subep = subepisodes[index]
             subep = np.flip(subep.flatten())
             for i in range(1, len(subep)):
-                subep[i] = subep[i] + beta*subep[i-1] - ((i+1)/2)**3
+                if index == len(subepisodes) - 1:
+                    subep[i] = subep[i] + beta1*subep[i-1]
+                else:
+                    subep[i] = subep[i] + beta2*(5/(i+4))*subep[i-1]
             subep = np.flip(subep)
             subepisodes[index] = subep
-        
+        #print(subepisodes)
         self.episodes_values = np.concatenate(subepisodes)
         self.pass_to_visited_states()
 
@@ -89,13 +115,18 @@ class model_game_interact:
         # else:
         #     self.twohundred_last_episodes_data = self.twohundred_last_episodes_data[1:]
         #     self.twohundred_last_episodes_data.append(some)
-
+        
         # self.visited_states = pd.concat(self.twohundred_last_episodes_data)
-        self.pass_to_model(epsilon=0.0)
+        eps = 0 #0.001
+
+        # if self.ep_no%100 == 0:
+        #     print("initializing processing...")
+        #     self.pass_to_model(epsilon=eps)
+        self.pass_to_model(epsilon=eps)
 
 
     def pass_to_model(self, epsilon = 0.1):
-
+        #print("preprocessing data")
         refactored = self.visited_states.groupby(["State", "Action"]).agg({"Q(s, a)": [("Q(s, a)", "mean"), ("N(s, a)", "count")]})
         refactored = refactored.droplevel(0, axis =1)
         refactored = refactored["Q(s, a)"]
@@ -107,11 +138,20 @@ class model_game_interact:
 
         refactored = refactored.fillna(0)
         refactored = refactored[self.available_actions]
+        #print(refactored)
+        if self.ep_no == 1000:
+            refactored.to_csv("checkup2.csv", sep = ',')
 
-        visited = [tuple(x.flatten()) for x in list(self.episodes_states)]
-        refactored = refactored[refactored.index.isin(visited)]
-        print(len(self.episodes_states))
-        print(len(refactored))
+        #visited = [tuple(x.flatten()) for x in list(self.episodes_states)]
+        
+        #random_indices = refactored.index[np.random.choice(len(refactored), size=400, replace=True, p=None)] #(refactored.index.isin(random_indices))
+        #total_picked = [i for i in random_indices if i not in visited]
+        #total_picked = total_picked + visited
+        
+        #refactored = refactored.loc[(refactored.index.isin(visited)),:]
+        
+        # print(len(self.episodes_states))
+        # print(len(refactored))
         states = refactored.index
         #print(self.investigate in states)
         # if self.investigate:
@@ -139,7 +179,6 @@ class model_game_interact:
 
         self.ready_for_pass_data = (states, refactored)
         print(f"Episode {self.ep_no} processed")
-        self.ep_no += 1
 
     def get_alternatives(self, snake):
         
@@ -186,6 +225,7 @@ class model_game_interact:
                 else:
                     actions_values[i] = self.neutrum
         #print(actions_values)
+        return actions_values
 
     def evaluate_action(self, snake, food, latitude, longitude):
         evaluated_snake_loc = snake.move(evaluate = True)

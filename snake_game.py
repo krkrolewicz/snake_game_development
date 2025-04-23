@@ -65,16 +65,22 @@ class Game:
     def update_all(self):
         self.CR.canva.delete("all")
         if self.robotic_movements:
-            state = self.mi.objects_to_plain_translate(self.gamesnake.snakepart_location, self.gameplain, self.food.coords)
+            #state = self.mi.objects_to_plain_translate(self.gamesnake.snakepart_location, self.gameplain, self.food.coords)
+            prev_move = self.gamesnake.head_movement
+            state = self.mi.reduce_state(self.gamesnake, self.food, self.gameplain.latitude, self.gameplain.longitude, prev_move)
+            if self.mi.ep_no <= 100:
+                self.first_ep = True
+            else:
+                self.first_ep = False
             picked_movement = self.model_in_use.get_direction(state, self.first_ep)
             #print(picked_movement)
             self.determine_movement(picked_movement)
-            self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
+            self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food, prev_move, state)
         else:
             self.determine_movement(self.gamesnake.head_movement)
         #self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
         self.gamesnake.move()
-        self.mi.evaluate_actions(self.gamesnake, self.food, self.gameplain.latitude, self.gameplain.longitude)
+        #self.mi.evaluate_actions(self.gamesnake, self.food, self.gameplain.latitude, self.gameplain.longitude)
         self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
         self.food_check()
         for i in range(1, self.gameplain.gameplain.shape[0]-1):#w tejże pętli ustalamy dla każdej komórki jej stan i rysujemy odpowiednim kolorem
@@ -82,7 +88,7 @@ class Game:
                 self.CR.set_color(j-1, i-1, self.CR.lifecolor.get(self.gameplain.gameplain[i][j])) #rysujemy komórkę odpowiednim dla niej kolorem
 
         check_living = self.gamesnake.is_alive
-        if check_living == False or (self.counter == 100 and self.robotic_movements == True):
+        if check_living == False or (self.counter == 400 and self.robotic_movements == True):
             self.CR.canva.delete("all")
             self.CR.canva.after(self.speed, self.end)
         else:
@@ -119,9 +125,10 @@ class Game:
             #self.mi.divide_and_discount()
         else:
             self.mi.divide_and_discount()
+            #if self.mi.ep_no%100 == 0:
             self.model_in_use.adjust(self.mi.ready_for_pass_data, self.mi.available_actions)
             print("newbegin")
-            self.first_ep = False
+            #self.first_ep = False
             self.default_all()
             self.update_all()
 
@@ -154,6 +161,7 @@ class Game:
     def stopping(self):
         self.CR.canva.delete("all")
         torch.save(self.model_in_use.model2.state_dict(), "the_model.pt")
+        self.mi.visited_states.to_csv("checkup.csv", sep = ",")
         self.robotic_movements = False
         self.real_player_button["state"] = "active"
         self.play_again_button["state"] = "active"

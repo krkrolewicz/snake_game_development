@@ -10,16 +10,27 @@ class SnakeRoboticPlayer:
     def __init__(self, outputs, gridsize1, gridsize2):
         self.gridsize1 = gridsize1
         self.gridsize2 = gridsize2
-        sqr4 = self.gridsize1 * self.gridsize2
-        sqr = self.gridsize1 * self.gridsize2 * 4
-        print(sqr)
+        self.sqr4 = self.gridsize1 * self.gridsize2
+        self.sqr = self.gridsize1 * self.gridsize2 * 4
+        #print(sqr)
         self.internal_visited_states = None
         #self.model = MLPClassifier(hidden_layer_sizes=[sqr] * 8, learning_rate_init=0.0001, max_iter = 400)
+        self.init_model()
+        self.outputs = outputs
+        self.num_epochs = 100
+
+    def init_model(self):
 
         self.model2 = nn.Sequential(
-            nn.Linear(sqr4, sqr, device="cuda:0"),
+            nn.Linear(12, 36, device="cuda:0"),
             nn.ReLU(),
-            nn.Linear(sqr, sqr, device="cuda:0"),
+            nn.Linear(36, 36, device="cuda:0"),
+            nn.ReLU(),
+            nn.Linear(36, 36, device="cuda:0"),
+            nn.ReLU(),
+            nn.Linear(36, 36, device="cuda:0"),
+            nn.ReLU(),
+            nn.Linear(36, 36, device="cuda:0"),
             nn.ReLU(),
             # nn.Linear(sqr, sqr, device="cuda:0"),
             # nn.ReLU(),
@@ -31,22 +42,12 @@ class SnakeRoboticPlayer:
             # nn.ReLU(),
             # nn.Linear(sqr, sqr, device="cuda:0"),
             # nn.ReLU(),
-            nn.Linear(sqr, sqr, device="cuda:0"),
-            nn.ReLU(),
-            nn.Linear(sqr, sqr, device="cuda:0"),
-            nn.ReLU(),
-            nn.Linear(sqr, sqr, device="cuda:0"),
-            nn.ReLU(),
-            nn.Linear(sqr, sqr, device="cuda:0"),
-            nn.ReLU(),
-            nn.Linear(sqr, 4, device="cuda:0"),
+            nn.Linear(36, 4, device="cuda:0"),
             nn.Softmax(dim = 1)
         )
 
         self.loss_func = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.model2.parameters(), lr=0.00001)
-        self.outputs = outputs
-        self.num_epochs = 40
+        self.optimizer = torch.optim.Adam(self.model2.parameters(), lr=0.001)
 
     def get_direction(self, input, first = False):
         input = input.flatten().reshape(1, -1)
@@ -58,10 +59,12 @@ class SnakeRoboticPlayer:
             #res = self.model.predict(input)[0]
             res = self.model2(input)
             _, preds = torch.max(res, 1)
+            #print(res.cpu().detach().numpy())
+            res2 = np.random.choice(self.outputs, size = 1, p = res.cpu().detach().numpy().flatten())[0]
             #print(self.outputs[preds])
             #print(self.outputs[res] )
             #print("success")
-            return self.outputs[preds] 
+            return res2 #self.outputs[preds] 
 
     def adjust(self, data_from_interactor, labels_from_interactor):
         Xt, y = data_from_interactor
@@ -78,7 +81,9 @@ class SnakeRoboticPlayer:
         y = torch.from_numpy(y)
         y = y.type(torch.LongTensor) 
         y = y.to("cuda")#.to(torch.float32)
-        
+
+        #self.init_model()
+        run_loss = 0
         for n in range(self.num_epochs):
             y_pred = self.model2(Xt)
             #print(y_pred)
@@ -86,15 +91,18 @@ class SnakeRoboticPlayer:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            run_loss = 0
+            run_loss += loss.item()
+        print("Loss: ", run_loss)
 
 
 class Net(nn.Module):
     def __init__(self ):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels = 1, out_channels=10, kernel_size=2, stride=1, padding=0, device="cuda:0") #inputsize = 17 x 17, output = 16 x 16
+        self.conv1 = nn.Conv2d(in_channels = 1, out_channels=4, kernel_size=2, stride=1, padding=1, device="cuda:0") #inputsize = 17 x 17, output = 17 x 17
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(10, 16, 5, 1, 0, device="cuda:0")
-        self.fc1 = nn.Linear(16 * 3 * 3, 120, device="cuda:0")
+        self.conv2 = nn.Conv2d(4, 4, 5, 1, 1, device="cuda:0")
+        self.fc1 = nn.Linear(4 * 3 * 3, 120, device="cuda:0")
         self.fc2 = nn.Linear(120, 84, device="cuda:0")
         self.fc3 = nn.Linear(84, 4, device="cuda:0")
 
@@ -135,10 +143,12 @@ class SnakeRoboticPlayer2():
             #res = self.model.predict(input)[0]
             res = self.model(input)
             _, preds = torch.max(res, 1)
+            res2 = np.random.choice(self.outputs, size = 1, p = res.cpu().detach().numpy().flatten())[0]
             #print(self.outputs[preds])
             #print(self.outputs[res] )
             #print("success")
-            return self.outputs[preds] 
+            #return self.outputs[preds]
+            return res2 
     
     def adjust(self, data_from_interactor, labels_from_interactor):
         X, y = data_from_interactor
