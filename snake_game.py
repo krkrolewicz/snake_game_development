@@ -9,6 +9,8 @@ from model import SnakeRoboticPlayer, SnakeRoboticPlayer2
 from model_game_interaction import model_game_interact
 import time
 import torch
+from tkinter import filedialog
+import os
 
 class Game:
 
@@ -31,15 +33,20 @@ class Game:
         self.CR.window.bind('<Up>', func=partial(self.determine_movement, "U"))
         self.CR.window.bind('<Down>', func = partial(self.determine_movement, "D"))
 
-        self.real_player_button = tk.Button(self.CR.window, text = "Play yourself", command = None, state = "disabled")
-        self.robotic_player_button = tk.Button(self.CR.window, text="Create machine", command= self.initiate_robotic, state = "disabled")
+        self.real_player_button = tk.Button(self.CR.window, text = "Play yourself", command = self.player_start, state = "disabled")
         self.play_again_button = tk.Button(self.CR.window, text = "Play again", command = self.intermission, state = "disabled")
+        self.robotic_player_button = tk.Button(self.CR.window, text="Create machine", command= self.initiate_robotic, state = "disabled")
         self.stop_training_button = tk.Button(self.CR.window, text="Stop training machine", command=self.stopping, state = "disabled")
-        
-        self.real_player_button.place(x = window_size1 * 1/7, y = window_size2* 2.5/2.8)
-        self.robotic_player_button.place(x = window_size1 * 2.2/7, y = window_size2* 2.5/2.8)
-        self.play_again_button.place(x = window_size1 * 3.6/7, y = window_size2* 2.5/2.8)
-        self.stop_training_button.place(x = window_size1 * 4.6/7, y = window_size2* 2.5/2.8)
+        self.introduce_machine = tk.Button(self.CR.window, text="Initiate machine", command=self.initiate_machine, state = "disabled")
+        self.terminate_button = tk.Button(self.CR.window, text="Terminate machine", command=self.stop_machine, state = "disabled")
+
+        self.real_player_button.place(x = window_size1 * 0.9/7, y = window_size2* 2.5/2.8)
+        self.play_again_button.place(x = window_size1 * 1.85/7, y = window_size2* 2.5/2.8)
+        self.robotic_player_button.place(x = window_size1 * 2.7/7, y = window_size2* 2.5/2.8)
+        self.stop_training_button.place(x = window_size1 * 3.8/7, y = window_size2* 2.5/2.8)
+        self.introduce_machine.place(x = window_size1 * 0.9/7, y = window_size2* 2.65/2.8)
+        self.terminate_button.place(x = window_size1 * 2.2/7, y = window_size2* 2.65/2.8)
+
 
         self.speed = 100
         self.food = None
@@ -55,8 +62,11 @@ class Game:
         score_lab.pack(side="left")
         self.generate_food()
         self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
+
+        self.player_movement = True
         self.robotic_movements = False
-        self.models = []
+        self.trained_movement = False
+
         self.model_in_use = None
         self.first_ep = True
         self.counter = 1
@@ -64,23 +74,20 @@ class Game:
 
     def update_all(self):
         self.CR.canva.delete("all")
-        if self.robotic_movements:
-            #state = self.mi.objects_to_plain_translate(self.gamesnake.snakepart_location, self.gameplain, self.food.coords)
+        if self.robotic_movements or self.trained_movement:
             prev_move = self.gamesnake.head_movement
             state = self.mi.reduce_state(self.gamesnake, self.food, self.gameplain.latitude, self.gameplain.longitude, prev_move)
-            if self.mi.ep_no <= 100:
+            if  self.robotic_movements == True and self.mi.ep_no == 1:
                 self.first_ep = True
             else:
                 self.first_ep = False
             picked_movement = self.model_in_use.get_direction(state, self.first_ep)
-            #print(picked_movement)
             self.determine_movement(picked_movement)
-            self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food, prev_move, state)
+            if self.robotic_movements:
+                self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food, prev_move, state)
         else:
             self.determine_movement(self.gamesnake.head_movement)
-        #self.mi.insert_to_episode(self.gamesnake, self.gameplain, self.food)
         self.gamesnake.move()
-        #self.mi.evaluate_actions(self.gamesnake, self.food, self.gameplain.latitude, self.gameplain.longitude)
         self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
         self.food_check()
         for i in range(1, self.gameplain.gameplain.shape[0]-1):#w tejże pętli ustalamy dla każdej komórki jej stan i rysujemy odpowiednim kolorem
@@ -114,23 +121,22 @@ class Game:
                                    text  = "You lost", fill = "#701D84", 
                                    font = ("Arial", int(round(1/10*self.windowsize2))))
         self.CR.canva.update()
-        #self.mi.divide_and_discount()
-        #self.play_again_button["state"] = "active"
-        #self.real_player_button["state"] = "active"
-        #self.robotic_player_button["state"] = "active"
-        #self.stop_training_button["state"] = "active"
-        if self.robotic_movements==False:
-            self.play_again_button["state"] = "active"
-            self.robotic_player_button["state"] = "active"
-            #self.mi.divide_and_discount()
-        else:
+
+        if self.robotic_movements==True:
             self.mi.divide_and_discount()
-            #if self.mi.ep_no%100 == 0:
             self.model_in_use.adjust(self.mi.ready_for_pass_data, self.mi.available_actions)
             print("newbegin")
-            #self.first_ep = False
             self.default_all()
             self.update_all()
+
+        elif self.trained_movement:
+            self.default_all()
+            self.update_all()   
+
+        else:
+            self.play_again_button["state"] = "active"
+            self.robotic_player_button["state"] = "active"
+            self.introduce_machine["state"] = "active"
 
     def default_all(self):
         self.gameplain = Plain(self.latitude, self.longitude)
@@ -142,26 +148,82 @@ class Game:
         self.generate_food()
         self.gameplain.obtain_pixels({"snake": self.gamesnake.snakepart_location, "food": self.food.coords})
 
+    def initiate_machine(self):
+        self.trained_movement = True
+        self.player_movement = False
+        self.robotic_movements = False
+        self.robotic_player_button["state"]  = "disabled"
+        self.play_again_button["state"]  = "disabled"
+        self.real_player_button["state"] = "disabled"
+        self.introduce_machine["state"]  = "disabled"
+        self.stop_training_button["state"] = "disabled"
+        self.terminate_button["state"] = "active"
+        self.default_all()
+        self.model_in_use = SnakeRoboticPlayer(list(self.gamesnake.states.keys()), self.latitude + 2, self.longitude + 2)
+        path = os.path.dirname(os.path.realpath(__file__)) + "\\models\\"
+        #print(path)
+        file = filedialog.askopenfilename(initialdir = path,
+                                          title = "Select a File",
+                                          filetypes = ())
+        self.model_in_use.load_from_file(file)
+        self.update_all()
+        #otwarcie modelu
+        #blokada przycisków
+        #default i update all
+
+    def stop_machine(self):
+        self.trained_movement = False
+        self.player_movement = False
+        self.robotic_movements = False
+        self.CR.canva.delete("all")
+        self.gamesnake.is_alive = False
+        #self.stop_training_button["state"] = "active"
+        self.terminate_button["state"] = "disabled"
+        self.real_player_button["state"] = "active"
+        self.introduce_machine["state"]  = "active"
+        self.robotic_player_button["state"] = "active"
+        #self.play_again_button["state"] = "active"
+        self.end()
+
+    
+    def player_start(self):
+        self.trained_movement = False
+        self.player_movement = True
+        self.robotic_movements = False
+        self.stop_training_button["state"] = "disabled"
+        self.real_player_button["state"] = "disabled"
+        self.play_again_button["state"] = "disabled"
+        self.default_all()
+        self.update_all()   
+
     def intermission(self):
         self.play_again_button["state"] == "disabled"
+        self.robotic_player_button["state"] = "disabled"
+        self.introduce_machine["state"] = "disabled"
         self.default_all()
         self.update_all()
     
     def initiate_robotic(self):
         self.robotic_movements = True
-        self.stop_training_button["state"] = "active"
+
+        self.robotic_player_button["state"]  = "disabled"
+        self.play_again_button["state"]  = "disabled"
         self.real_player_button["state"] = "disabled"
-        self.play_again_button["state"] = "disabled"
+        self.introduce_machine["state"]  = "disabled"
+        self.stop_training_button["state"] = "active"
+        self.terminate_button["state"] = "disabled"
+
         self.default_all()
         new_model = SnakeRoboticPlayer(list(self.gamesnake.states.keys()), self.latitude + 2, self.longitude + 2)
-        self.models.append(new_model)
         self.model_in_use = new_model
         self.update_all()
 
     def stopping(self):
         self.CR.canva.delete("all")
-        torch.save(self.model_in_use.model2.state_dict(), "the_model.pt")
-        self.mi.visited_states.to_csv("checkup.csv", sep = ",")
+        path = os.path.dirname(os.path.realpath(__file__)) + "\\models\\"
+        filesave = filedialog.asksaveasfilename(initialdir=path)
+        torch.save(self.model_in_use.model2.state_dict(), filesave + ".pt")
+        #self.mi.visited_states.to_csv("checkup.csv", sep = ",")
         self.robotic_movements = False
         self.real_player_button["state"] = "active"
         self.play_again_button["state"] = "active"
@@ -182,5 +244,5 @@ class Game:
 
 
 
-game = Game(15, 15, 500, 500)
+game = Game(15, 15, 600, 600)
 game.CR.window.mainloop()

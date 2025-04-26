@@ -17,7 +17,7 @@ class SnakeRoboticPlayer:
         #self.model = MLPClassifier(hidden_layer_sizes=[sqr] * 8, learning_rate_init=0.0001, max_iter = 400)
         self.init_model()
         self.outputs = outputs
-        self.num_epochs = 100
+        self.num_epochs = 30
 
     def init_model(self):
 
@@ -28,13 +28,13 @@ class SnakeRoboticPlayer:
             nn.ReLU(),
             nn.Linear(36, 36, device="cuda:0"),
             nn.ReLU(),
-            nn.Linear(36, 36, device="cuda:0"),
-            nn.ReLU(),
-            nn.Linear(36, 36, device="cuda:0"),
-            nn.ReLU(),
-            # nn.Linear(sqr, sqr, device="cuda:0"),
+            # nn.Linear(36, 36, device="cuda:0"),
             # nn.ReLU(),
-            # nn.Linear(sqr, sqr, device="cuda:0"),
+            # nn.Linear(36, 36, device="cuda:0"),
+            # nn.ReLU(),
+            # nn.Linear(36, 36, device="cuda:0"),
+            # nn.ReLU(),
+            # nn.Linear(36, 36, device="cuda:0"),
             # nn.ReLU(),
             # nn.Linear(sqr, sqr, device="cuda:0"),
             # nn.ReLU(),
@@ -47,7 +47,10 @@ class SnakeRoboticPlayer:
         )
 
         self.loss_func = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.model2.parameters(), lr=0.001)
+        self.optimizer = torch.optim.Adam(self.model2.parameters(), lr=0.001) #o.001
+
+    def load_from_file(self, file):
+        self.model2.load_state_dict(torch.load(file, weights_only=False))
 
     def get_direction(self, input, first = False):
         input = input.flatten().reshape(1, -1)
