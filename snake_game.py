@@ -28,10 +28,11 @@ class Game:
 
         self.CR = CanvaRepresentation(self.windowsize1, self.windowsize2, self.gameplain)
         #self.gameplain.obtain_pixels(self.gamesnake.snakepart_location)
-        self.CR.window.bind('<Left>', func=partial(self.determine_movement, "L"))
-        self.CR.window.bind('<Right>', func=partial(self.determine_movement, "R"))
-        self.CR.window.bind('<Up>', func=partial(self.determine_movement, "U"))
-        self.CR.window.bind('<Down>', func = partial(self.determine_movement, "D"))
+        self.turn_on_buttons()
+        # self.CR.window.bind('<Left>', func=partial(self.determine_movement, "L"))
+        # self.CR.window.bind('<Right>', func=partial(self.determine_movement, "R"))
+        # self.CR.window.bind('<Up>', func=partial(self.determine_movement, "U"))
+        # self.CR.window.bind('<Down>', func = partial(self.determine_movement, "D"))
 
         self.real_player_button = tk.Button(self.CR.window, text = "Play yourself", command = self.player_start, state = "disabled")
         self.play_again_button = tk.Button(self.CR.window, text = "Play again", command = self.intermission, state = "disabled")
@@ -71,6 +72,18 @@ class Game:
         self.first_ep = True
         self.counter = 1
         self.update_all()
+
+    def turn_on_buttons(self):
+        self.CR.window.bind('<Left>', func=partial(self.determine_movement, "L"))
+        self.CR.window.bind('<Right>', func=partial(self.determine_movement, "R"))
+        self.CR.window.bind('<Up>', func=partial(self.determine_movement, "U"))
+        self.CR.window.bind('<Down>', func = partial(self.determine_movement, "D"))
+
+    def turn_off_buttons(self):
+        self.CR.window.bind('<Left>',func =  None)
+        self.CR.window.bind('<Right>', func = None)
+        self.CR.window.bind('<Up>', func = None)
+        self.CR.window.bind('<Down>', func = None)
 
     def update_all(self):
         self.CR.canva.delete("all")
@@ -158,6 +171,7 @@ class Game:
         self.introduce_machine["state"]  = "disabled"
         self.stop_training_button["state"] = "disabled"
         self.terminate_button["state"] = "active"
+        self.turn_off_buttons()
         self.default_all()
         self.model_in_use = SnakeRoboticPlayer(list(self.gamesnake.states.keys()), self.latitude + 2, self.longitude + 2)
         path = os.path.dirname(os.path.realpath(__file__)) + "\\models\\"
@@ -193,6 +207,7 @@ class Game:
         self.stop_training_button["state"] = "disabled"
         self.real_player_button["state"] = "disabled"
         self.play_again_button["state"] = "disabled"
+        self.turn_on_buttons()
         self.default_all()
         self.update_all()   
 
@@ -205,7 +220,7 @@ class Game:
     
     def initiate_robotic(self):
         self.robotic_movements = True
-
+        self.turn_off_buttons()
         self.robotic_player_button["state"]  = "disabled"
         self.play_again_button["state"]  = "disabled"
         self.real_player_button["state"] = "disabled"
@@ -222,7 +237,7 @@ class Game:
         self.CR.canva.delete("all")
         path = os.path.dirname(os.path.realpath(__file__)) + "\\models\\"
         filesave = filedialog.asksaveasfilename(initialdir=path)
-        torch.save(self.model_in_use.model2.state_dict(), filesave + ".pt")
+        torch.save(self.model_in_use.model2, filesave + ".pth")
         #self.mi.visited_states.to_csv("checkup.csv", sep = ",")
         self.robotic_movements = False
         self.real_player_button["state"] = "active"

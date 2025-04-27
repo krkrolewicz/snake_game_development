@@ -50,7 +50,7 @@ class SnakeRoboticPlayer:
         self.optimizer = torch.optim.Adam(self.model2.parameters(), lr=0.001) #o.001
 
     def load_from_file(self, file):
-        self.model2.load_state_dict(torch.load(file, weights_only=False))
+        self.model2 = torch.load(file, weights_only=False)
 
     def get_direction(self, input, first = False):
         input = input.flatten().reshape(1, -1)
