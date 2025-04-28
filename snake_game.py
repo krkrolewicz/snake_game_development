@@ -7,7 +7,6 @@ from food import Food
 from canvarepresentation import CanvaRepresentation
 from model import SnakeRoboticPlayer, SnakeRoboticPlayer2
 from model_game_interaction import model_game_interact
-import time
 import torch
 from tkinter import filedialog
 import os

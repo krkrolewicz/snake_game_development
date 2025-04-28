@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.neural_network import MLPClassifier
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -22,11 +21,11 @@ class SnakeRoboticPlayer:
     def init_model(self):
 
         self.model2 = nn.Sequential(
-            nn.Linear(12, 36, device="cuda:0"),
+            nn.Linear(12, 36, device="cuda:0" if torch.cuda.is_available() else "cpu"),
             nn.ReLU(),
-            nn.Linear(36, 36, device="cuda:0"),
+            nn.Linear(36, 36, device="cuda:0" if torch.cuda.is_available() else "cpu"),
             nn.ReLU(),
-            nn.Linear(36, 36, device="cuda:0"),
+            nn.Linear(36, 36, device="cuda:0" if torch.cuda.is_available() else "cpu"),
             nn.ReLU(),
             # nn.Linear(36, 36, device="cuda:0"),
             # nn.ReLU(),
@@ -42,7 +41,7 @@ class SnakeRoboticPlayer:
             # nn.ReLU(),
             # nn.Linear(sqr, sqr, device="cuda:0"),
             # nn.ReLU(),
-            nn.Linear(36, 4, device="cuda:0"),
+            nn.Linear(36, 4, device="cuda:0" if torch.cuda.is_available() else "cpu"),
             nn.Softmax(dim = 1)
         )
 
@@ -54,7 +53,10 @@ class SnakeRoboticPlayer:
 
     def get_direction(self, input, first = False):
         input = input.flatten().reshape(1, -1)
-        input = torch.from_numpy(input).to("cuda").to(torch.float32)
+        if torch.cuda.is_available():
+            input = torch.from_numpy(input).to("cuda").to(torch.float32)
+        else:
+            input = torch.from_numpy(input).to(torch.float32)
         if first:
             #print("failed")
             return np.random.choice(self.outputs)
@@ -78,12 +80,20 @@ class SnakeRoboticPlayer:
         #self.model.fit(X, y)
         #print(X.shape)
         #print(y)
-        Xt = torch.from_numpy(Xt).to("cuda").to(torch.float32)
-        #print(Xt.shape)
-        #print(Xt)
         y = torch.from_numpy(y)
         y = y.type(torch.LongTensor) 
-        y = y.to("cuda")#.to(torch.float32)
+
+        if torch.cuda.is_available():
+            Xt = torch.from_numpy(Xt).to("cuda").to(torch.float32)
+            y = y.to("cuda")#.to(torch.float32)
+        else:
+            Xt = torch.from_numpy(Xt).to(torch.float32)
+
+        #print(Xt.shape)
+        #print(Xt)
+        # y = torch.from_numpy(y)
+        # y = y.type(torch.LongTensor) 
+        # y = y.to("cuda")#.to(torch.float32)
 
         #self.init_model()
         run_loss = 0
